@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Horarios del Evento</title>
+<style>
+:root{
+  --ink:#151a2e; --panel:#1e2440; --panel2:#262d4f; --line:#343c66;
+  --text:#ecebf3; --muted:#9aa0c0; --gold:#e8b84a; --gold-ink:#2a2006;
+  --ok:#3fb27f; --warn:#e8b84a; --late:#e0525f; --next:#4c7bd9;
+  font-family:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--ink);color:var(--text);min-height:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--gold);color:var(--gold-ink);border-color:var(--gold);font-weight:700}
+.btn.small{padding:4px 9px;font-size:.85rem;border-radius:6px}
+.btn.danger:hover{border-color:var(--late);color:#ffb3bf}
+
+header{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:1.15rem;margin:0;font-weight:700}
+header h1 span{color:var(--muted);font-weight:400}
+.sp{flex:1}
+.tabs{display:flex;gap:6px}
+.tab{background:none;border:1px solid transparent;border-radius:8px;padding:8px 14px;color:var(--muted)}
+.tab.on{background:var(--panel2);border-color:var(--gold);color:var(--text)}
+
+/* ---------- Cargar ---------- */
+#vCargar{max-width:1100px;margin:0 auto;padding:18px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;background:var(--panel);line-height:1.6}
+.drop.over{border-color:var(--gold);background:var(--panel2)}
+.drop b{color:var(--gold)}
+.acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+details{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+summary{cursor:pointer;color:var(--muted)}
+textarea{width:100%;min-height:140px;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:10px;font-size:.95rem}
+.msg{margin:12px 0 0;padding:10px 12px;border-radius:8px;font-size:.92rem;display:none}
+.msg.show{display:block}
+.msg.ok{background:#173a2c;border:1px solid var(--ok)}
+.msg.err{background:#3a1a20;border:1px solid var(--late)}
+h2{font-size:1rem;color:var(--muted);margin:22px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h2 .sp{flex:1}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:.8rem;color:var(--muted);text-align:left;font-weight:600;padding:4px 4px 6px}
+.tbl td{padding:3px}
+.tbl input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 8px;min-width:0}
+.tbl input.bad{border-color:var(--late)}
+.tbl .t{width:92px}.tbl .d{width:130px}.tbl .x{width:40px}
+.tbl tr.day td{padding-top:12px;color:var(--gold);font-weight:700;font-size:.9rem}
+.empty{color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:24px;text-align:center}
+
+/* ---------- En vivo ---------- */
+#vVivo{padding:clamp(12px,2.5vw,32px);display:grid;gap:clamp(12px,2vw,24px);grid-template-columns:1fr;min-height:calc(100vh - 62px);min-height:calc(100dvh - 62px)}
+body.fs header{display:none}
+body.fs #vVivo{min-height:100vh;min-height:100dvh}
+.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.clock{font-size:clamp(1.6rem,4.5vw,3.2rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.date{color:var(--muted);font-size:clamp(.9rem,1.6vw,1.2rem)}.date::first-letter{text-transform:uppercase}
+.top .btn{margin-left:auto}
+.card{background:var(--panel);border-radius:16px;padding:clamp(16px,3vw,36px);border-left:8px solid var(--ok);position:relative}
+.label{font-size:clamp(.8rem,1.4vw,1.05rem);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+.now .title{font-size:clamp(1.8rem,5.5vw,4.6rem);font-weight:800;line-height:1.08;margin:.25em 0 .2em;overflow-wrap:anywhere}
+.range{font-size:clamp(1.1rem,2.6vw,2rem);font-weight:600;font-variant-numeric:tabular-nums}
+.who{font-size:clamp(1rem,2.2vw,1.6rem);color:var(--muted);margin-top:.3em}
+.remain{font-size:clamp(3rem,12vw,10rem);font-weight:900;font-variant-numeric:tabular-nums;line-height:1;margin-top:.25em;color:var(--ok)}
+.remain small{display:block;font-size:clamp(.8rem,1.4vw,1.05rem);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:.4em}
+.bar{height:10px;background:var(--ink);border-radius:6px;overflow:hidden;margin-top:clamp(12px,2vw,22px)}
+.bar div{height:100%;background:var(--ok);width:0;transition:width 1s linear}
+.notes{margin-top:12px;color:var(--muted);font-size:clamp(.9rem,1.6vw,1.15rem)}
+.card.warn{border-left-color:var(--warn)} .card.warn .remain{color:var(--warn)} .card.warn .bar div{background:var(--warn)}
+.card.late{border-left-color:var(--late)} .card.late .remain{color:var(--late)} .card.late .bar div{background:var(--late)}
+.card.idle{border-left-color:var(--muted)} .card.idle .remain{color:var(--text)}
+.next{border-left-color:var(--next)}
+.next .title{font-size:clamp(1.3rem,3.4vw,2.6rem);font-weight:800;margin:.25em 0 .15em;line-height:1.12;overflow-wrap:anywhere}
+.next .in{font-size:clamp(1rem,2.2vw,1.6rem);font-weight:700;color:var(--next);margin-top:.3em;font-variant-numeric:tabular-nums}
+.agenda{background:var(--panel);border-radius:16px;padding:clamp(14px,2vw,24px)}
+.agenda ol{list-style:none;margin:10px 0 0;padding:0}
+.agenda li{display:flex;gap:12px;padding:9px 10px;border-radius:8px;font-size:clamp(.95rem,1.4vw,1.1rem);align-items:baseline}
+.agenda li .h{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap;min-width:6.6em}
+.agenda li.past{opacity:.45}
+.agenda li.cur{background:var(--panel2);outline:2px solid var(--gold)}
+.agenda li.cur .h{color:var(--gold)}
+.agenda li .r{color:var(--muted);font-size:.9em}
+.noData{text-align:center;color:var(--muted);padding:40px 20px;line-height:1.7}
+
+@media (min-width:1000px){
+  #vVivo{grid-template-columns:minmax(0,2fr) minmax(300px,1fr);grid-template-rows:auto auto 1fr;align-content:start}
+  .top{grid-column:1/-1}
+  .now{grid-row:2/4;display:flex;flex-direction:column;justify-content:center}
+  .agenda{grid-column:2;grid-row:3;overflow:auto}
+}
+@media (max-width:640px){
+  header{padding:10px 14px}
+  header h1{flex-basis:100%}
+  #vCargar{padding:14px}
+  .tbl thead{display:none}
+  .tbl tr.row{display:grid;grid-template-columns:1fr 1fr 40px;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px}
+  .tbl tr.row td{padding:0}
+  .tbl tr.row td.c-tit,.tbl tr.row td.c-resp,.tbl tr.row td.c-not,.tbl tr.row td.c-fec{grid-column:1/-1}
+  .tbl tr.row td.c-x{grid-column:3;grid-row:1}
+  .tbl tr.row td.c-ini{grid-row:1;grid-column:1}.tbl tr.row td.c-fin{grid-row:1;grid-column:2}
+  .tbl, .tbl tbody{display:block}
+  .tbl tr.day{display:block}
+  .tbl .t,.tbl .d,.tbl .x{width:auto}
+  input,textarea{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){.bar div{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Horarios del Evento <span>· en vivo</span></h1>
+  <div class="sp"></div>
+  <nav class="tabs">
+    <button class="tab" data-v="Vivo">En vivo</button>
+    <button class="tab" data-v="Cargar">Cargar horarios</button>
+  </nav>
+</header>
+
+<!-- ================= CARGAR ================= -->
+<section id="vCargar" hidden>
+  <div class="drop" id="drop">
+    Arrastrá acá tu archivo <b>.csv</b> o <b>.txt</b> (desde Excel o Google Sheets: Archivo → Descargar / Guardar como CSV)
+    <div class="acts">
+      <button class="btn primary" id="pickBtn">Elegir archivo</button>
+      <button class="btn" id="tplBtn">Descargar plantilla</button>
+      <input type="file" id="file" accept=".csv,.txt,.tsv,text/csv,text/plain" hidden>
+    </div>
+  </div>
+  <details>
+    <summary>O pegá las celdas copiadas de Excel / Google Sheets</summary>
+    <textarea id="paste" placeholder="Fecha;Inicio;Fin;Bloque;Responsable;Notas
+10/10/2026;09:00;09:45;Alabanza;Banda;
+10/10/2026;09:45;10:30;Prédica;Pastor Juan;Tema: Fe"></textarea>
+    <div class="acts"><button class="btn primary" id="pasteBtn">Cargar lo pegado</button></div>
+  </details>
+  <div class="msg" id="msg"></div>
+
+  <h2>Cronograma <span class="sp"></span>
+    <button class="btn small" id="addBtn">+ Agregar bloque</button>
+    <button class="btn small" id="expBtn">Exportar CSV</button>
+    <button class="btn small" id="shareBtn">Copiar enlace para otras pantallas</button>
+    <button class="btn small danger" id="clrBtn">Borrar todo</button>
+  </h2>
+  <div id="tableWrap"></div>
+</section>
+
+<!-- ================= EN VIVO ================= -->
+<section id="vVivo" hidden>
+  <div class="top">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+    <button class="btn small" id="fsBtn">Pantalla completa</button>
+  </div>
+  <div class="card now" id="now"></div>
+  <div class="card next" id="next"></div>
+  <div class="agenda" id="agenda"></div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const KEY = 'horarios-evento-v1';
+let blocks = [];   // {fecha:'YYYY-MM-DD'|'', ini:'HH:MM', fin:'HH:MM'|'', titulo, resp, notas}
+
+// ---------- Utilidades de hora / fecha ----------
+const pad = n => String(n).padStart(2,'0');
+function iso(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function parseTime(v){
+  v = String(v??'').trim().toLowerCase();
+  if (!v) return '';
+  if (/^0?\.\d+$/.test(v)){ const m=Math.round(parseFloat(v)*1440); return pad(Math.floor(m/60)%24)+':'+pad(m%60); }
+  const m = v.match(/^(\d{1,2})(?:\s*[:.h]\s*(\d{2}))?(?::\d{2})?\s*(a\.?\s?m\.?|p\.?\s?m\.?|hs?\.?)?$/);
+  if (!m) return null;
+  let h=+m[1], mi=+(m[2]||0);
+  if (m[3] && m[3][0]==='p' && h<12) h+=12;
+  if (m[3] && m[3][0]==='a' && h===12) h=0;
+  if (h>23||mi>59) return null;
+  return pad(h)+':'+pad(mi);
+}
+function parseDate(v){
+  v = String(v??'').trim();
+  if (!v) return '';
+  let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1]+'-'+pad(m[2])+'-'+pad(m[3]);
+  m = v.match(/^(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?$/);
+  if (m){ let y = m[3] ? +m[3] : new Date().getFullYear(); if (y<100) y+=2000; return y+'-'+pad(m[2])+'-'+pad(m[1]); }
+  return null;
+}
+function fmtDate(isoStr){
+  if (!isoStr) return 'Todos los días';
+  const [y,mo,d]=isoStr.split('-').map(Number);
+  return new Date(y,mo-1,d).toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+}
+function fmtDur(ms){
+  const s = Math.max(0, Math.round(ms/1000)), h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
+  return h ? h+':'+pad(m)+':'+pad(x) : pad(m)+':'+pad(x);
+}
+function fmtIn(ms){
+  const min = Math.floor(ms/60000);
+  if (min < 1) return 'en menos de 1 min';
+  if (min < 60) return 'en '+min+' min';
+  const h=Math.floor(min/60), m=min%60;
+  if (h < 24) return 'en '+h+' h'+(m?' '+m+' min':'');
+  const d=Math.round(h/24); return 'en '+d+' día'+(d>1?'s':'');
+}
+
+// ---------- CSV ----------
+function parseCSV(text){
+  text = text.replace(/^\uFEFF/,'');
+  const first = text.split(/\r?\n/).find(l=>l.trim()) || '';
+  const cnt = c => (first.match(new RegExp('\\'+c,'g'))||[]).length;
+  const del = [['\t',cnt('\t')],[';',cnt(';')],[',',cnt(',')]].sort((a,b)=>b[1]-a[1])[0][0];
+  const rows=[]; let row=[], f='', q=false;
+  for (let i=0;i<text.length;i++){
+    const c=text[i];
+    if (q){ if(c==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; continue; }
+    if (c==='"' && f==='') q=true;
+    else if (c===del){ row.push(f); f=''; }
+    else if (c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; row.push(f); rows.push(row); row=[]; f=''; }
+    else f+=c;
+  }
+  if (f!==''||row.length){ row.push(f); rows.push(row); }
+  return rows.filter(r=>r.some(c=>c.trim()));
+}
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+const HEAD = [
+  ['fecha',/^(fecha|dia|date|jornada)/], ['ini',/^(inicio|desde|comienza|empieza|start|hora inicio|hora de inicio|hora)$/],
+  ['fin',/^(fin|hasta|termina|end|hora fin|hora de fin|finaliza)/], ['titulo',/^(bloque|titulo|actividad|evento|nombre|title|programa|segmento)/],
+  ['resp',/^(responsable|orador|a cargo|quien|speaker|encargado|ministra)/], ['notas',/^(notas?|observaciones|obs|comentarios|notes)/]
+];
+function rowsToBlocks(rows){
+  if (!rows.length) throw new Error('El archivo está vacío.');
+  let map=null;
+  const h = rows[0].map(norm), tmp={};
+  h.forEach((c,i)=>{ for (const [k,re] of HEAD) if (re.test(c) && !(k in tmp)){ tmp[k]=i; break; } });
+  if ('ini' in tmp && 'titulo' in tmp){ map=tmp; rows=rows.slice(1); }
+  else {
+    // Sin encabezados: deducir si la primera columna es fecha
+    const hasDate = parseDate(rows[0][0]) && parseTime(rows[0][1]);
+    map = hasDate ? {fecha:0,ini:1,fin:2,titulo:3,resp:4,notas:5} : {ini:0,fin:1,titulo:2,resp:3,notas:4};
+  }
+  const out=[], errs=[];
+  let lastDate='';
+  rows.forEach((r,n)=>{
+    const g = k => map[k]!=null ? (r[map[k]]||'').trim() : '';
+    let fecha = parseDate(g('fecha')); const ini=parseTime(g('ini')), fin=parseTime(g('fin'));
+    if (fecha===null){ errs.push('Fila '+(n+1)+': fecha "'+g('fecha')+'" no reconocida'); fecha=''; }
+    if (!g('fecha') && lastDate) fecha = lastDate; // celdas de fecha combinadas en Excel
+    if (fecha) lastDate = fecha;
+    if (!ini){ errs.push('Fila '+(n+1)+': hora de inicio "'+g('ini')+'" no reconocida'); return; }
+    if (fin===null) errs.push('Fila '+(n+1)+': hora de fin "'+g('fin')+'" no reconocida (se calcula sola)');
+    out.push({fecha, ini, fin: fin||'', titulo: g('titulo')||'(sin nombre)', resp:g('resp'), notas:g('notas')});
+  });
+  if (!out.length) throw new Error('No se encontró ningún bloque válido. '+errs.slice(0,3).join(' · '));
+  return {out, errs};
+}
+function sortBlocks(){ blocks.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'') || a.ini.localeCompare(b.ini)); }
+function toCSV(){
+  const esc = v => /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+  const lines = ['Fecha;Inicio;Fin;Bloque;Responsable;Notas'];
+  blocks.forEach(b=>{
+    const f = b.fecha ? b.fecha.split('-').reverse().join('/') : '';
+    lines.push([f,b.ini,b.fin,b.titulo,b.resp,b.notas].map(x=>esc(x||'')).join(';'));
+  });
+  return '\uFEFF'+lines.join('\r\n')+'\r\n';
+}
+function dl(name, text){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));
+  a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+// ---------- Guardado y enlace compartible ----------
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(blocks)); }catch(e){} }
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||[]; }catch(e){ return []; } }
+function b64e(s){ const u=new TextEncoder().encode(s); let x=''; u.forEach(c=>x+=String.fromCharCode(c)); return btoa(x).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function b64d(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); const x=atob(s); return new TextDecoder().decode(Uint8Array.from(x,c=>c.charCodeAt(0))); }
+function shareLink(){
+  const slim = blocks.map(b=>[b.fecha,b.ini,b.fin,b.titulo,b.resp,b.notas]);
+  return location.href.split('#')[0].split('?')[0] + '#d=' + b64e(JSON.stringify(slim));
+}
+function readHash(){
+  const m = location.hash.match(/[#&]d=([^&]+)/);
+  if (!m) return false;
+  try{
+    const arr = JSON.parse(b64d(m[1]));
+    blocks = arr.map(a=>({fecha:a[0]||'',ini:a[1],fin:a[2]||'',titulo:a[3]||'',resp:a[4]||'',notas:a[5]||''}));
+    sortBlocks(); save(); history.replaceState(null,'',location.pathname+location.search+'#vivo'); return true;
+  }catch(e){ return false; }
+}
+
+// ---------- Vista Cargar ----------
+function showMsg(text, ok){ const m=$('msg'); m.innerHTML=text; m.className='msg show '+(ok?'ok':'err'); }
+function importText(text){
+  try{
+    const {out, errs} = rowsToBlocks(parseCSV(text));
+    blocks = out; sortBlocks(); save(); renderTable();
+    showMsg('✓ Se cargaron <b>'+out.length+' bloques</b>.'+(errs.length?'<br>Avisos: '+errs.slice(0,5).join(' · '):'')+' <button class="btn small" onclick="go(\'Vivo\')">Ver en vivo</button>', true);
+  }catch(e){ showMsg('✕ '+e.message, false); }
+}
+function readFile(f){
+  const r = new FileReader();
+  r.onload = () => {
+    let t = r.result;
+    if (t.includes('\uFFFD')){ const r2=new FileReader(); r2.onload=()=>importText(r2.result); r2.readAsText(f,'windows-1252'); return; }
+    importText(t);
+  };
+  r.readAsText(f,'utf-8');
+}
+function renderTable(){
+  const w = $('tableWrap');
+  if (!blocks.length){ w.innerHTML='<div class="empty">Todavía no hay horarios. Subí un archivo, pegá desde Excel o agregá bloques a mano.</div>'; return; }
+  let html='<table class="tbl"><thead><tr><th class="d">Fecha</th><th class="t">Inicio</th><th class="t">Fin</th><th>Bloque</th><th>Responsable</th><th>Notas</th><th class="x"></th></tr></thead><tbody>';
+  let day=null;
+  blocks.forEach((b,i)=>{
+    if (b.fecha!==day){ day=b.fecha; html+='<tr class="day"><td colspan="7">'+esc(fmtDate(day))+'</td></tr>'; }
+    const f = b.fecha ? b.fecha.split('-').reverse().join('/') : '';
+    html+=`<tr class="row" data-i="${i}">
+      <td class="c-fec d"><input data-k="fecha" value="${esc(f)}" placeholder="dd/mm/aaaa" aria-label="Fecha"></td>
+      <td class="c-ini t"><input data-k="ini" value="${esc(b.ini)}" placeholder="09:00" aria-label="Inicio"></td>
+      <td class="c-fin t"><input data-k="fin" value="${esc(b.fin)}" placeholder="auto" aria-label="Fin"></td>
+      <td class="c-tit"><input data-k="titulo" value="${esc(b.titulo)}" placeholder="Bloque" aria-label="Bloque"></td>
+      <td class="c-resp"><input data-k="resp" value="${esc(b.resp)}" placeholder="Responsable" aria-label="Responsable"></td>
+      <td class="c-not"><input data-k="notas" value="${esc(b.notas)}" placeholder="Notas" aria-label="Notas"></td>
+      <td class="c-x x"><button class="btn small danger" data-del="${i}" title="Borrar bloque">✕</button></td></tr>`;
+  });
+  w.innerHTML = html+'</tbody></table>';
+}
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+$('tableWrap').addEventListener('change', e=>{
+  const inp=e.target, k=inp.dataset.k; if(!k) return;
+  const b = blocks[+inp.closest('tr').dataset.i];
+  let v = inp.value.trim();
+  if (k==='ini'||k==='fin'){ const t=parseTime(v); if(t===null || (k==='ini'&&!t)){ inp.classList.add('bad'); return; } v=t; }
+  if (k==='fecha'){ const d=parseDate(v); if(d===null){ inp.classList.add('bad'); return; } v=d; }
+  inp.classList.remove('bad'); b[k]=v;
+  if (k==='ini'||k==='fecha'){ sortBlocks(); renderTable(); } else if (k==='fin') inp.value=v;
+  save();
+});
+$('tableWrap').addEventListener('click', e=>{
+  const i=e.target.dataset.del; if(i==null) return;
+  blocks.splice(+i,1); save(); renderTable();
+});
+$('addBtn').onclick = ()=>{
+  const last = blocks[blocks.length-1];
+  const ini = last ? (last.fin || last.ini) : '09:00';
+  blocks.push({fecha:last?last.fecha:'', ini, fin:'', titulo:'Nuevo bloque', resp:'', notas:''});
+  sortBlocks(); save(); renderTable();
+  const ins=[...document.querySelectorAll('[data-k=titulo]')]; const t=ins.find(x=>x.value==='Nuevo bloque'); if(t){ t.focus(); t.select(); }
+};
+$('expBtn').onclick = ()=> blocks.length ? dl('horarios-evento.csv', toCSV()) : showMsg('No hay horarios para exportar.', false);
+$('clrBtn').onclick = ()=>{ if(blocks.length && confirm('¿Borrar todo el cronograma?')){ blocks=[]; save(); renderTable(); } };
+$('shareBtn').onclick = async ()=>{
+  if (!blocks.length) return showMsg('Primero cargá los horarios.', false);
+  const link = shareLink();
+  try{ await navigator.clipboard.writeText(link); showMsg('✓ Enlace copiado. Abrilo en las otras pantallas (escenario, cabina, celulares) y verán este mismo cronograma. Si cambiás algo, copiá un enlace nuevo.', true); }
+  catch(e){ prompt('Copiá este enlace:', link); }
+};
+$('tplBtn').onclick = ()=>{
+  const d = new Date(); const f = pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
+  dl('plantilla-horarios.csv', '\uFEFFFecha;Inicio;Fin;Bloque;Responsable;Notas\r\n'+
+    [f+';09:00;09:15;Bienvenida;Conductor;',f+';09:15;10:00;Alabanza;Banda;',f+';10:00;10:45;Prédica 1;Orador invitado;Tema a confirmar',
+     f+';10:45;11:15;Receso;;Café en el hall',f+';11:15;12:00;Taller;Equipo;Salones A y B'].join('\r\n')+'\r\n');
+};
+$('pickBtn').onclick = ()=>$('file').click();
+$('file').onchange = e=>{ if(e.target.files[0]) readFile(e.target.files[0]); e.target.value=''; };
+$('pasteBtn').onclick = ()=>{ const t=$('paste').value; if(t.trim()) importText(t); };
+const drop=$('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop', e=>{ const f=e.dataTransfer.files[0]; if(f) readFile(f); });
+
+// ---------- Vista En vivo ----------
+function timeline(now){
+  const today = iso(now);
+  const dates = [...new Set(blocks.map(b=>b.fecha||today))];
+  // Bloques sin fecha se repiten cada día (hoy y mañana para ver el siguiente)
+  const tomorrow = iso(new Date(now.getFullYear(),now.getMonth(),now.getDate()+1));
+  const items=[];
+  blocks.forEach(b=>{
+    const days = b.fecha ? [b.fecha] : [today, tomorrow];
+    days.forEach(day=>{
+      const [y,mo,d]=day.split('-').map(Number), [h,mi]=b.ini.split(':').map(Number);
+      items.push({b, day, start:new Date(y,mo-1,d,h,mi)});
+    });
+  });
+  items.sort((a,c)=>a.start-c.start);
+  items.forEach((it,i)=>{
+    const [y,mo,d]=it.day.split('-').map(Number);
+    if (it.b.fin){ const [h,mi]=it.b.fin.split(':').map(Number); it.end=new Date(y,mo-1,d,h,mi); if(it.end<=it.start) it.end=new Date(it.end.getTime()+864e5); }
+    else { const n=items[i+1]; it.end = n && n.day===it.day ? n.start : new Date(it.start.getTime()+30*60000); }
+  });
+  return items;
+}
+function testNow(){
+  const m = location.search.match(/[?&]hora=(\d{1,2}):?(\d{2})/);
+  if (!m) return new Date();
+  const d=new Date(); d.setHours(+m[1], +m[2], d.getSeconds()); return d;
+}
+let offset = 0; (()=>{ const t=testNow(); offset = t - new Date(); })();
+function renderLive(){
+  const now = new Date(Date.now()+offset);
+  $('clock').textContent = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+  $('date').textContent = now.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+  const nowC=$('now'), nextC=$('next'), ag=$('agenda');
+  if (!blocks.length){
+    nowC.className='card now idle';
+    nowC.innerHTML='<div class="noData">No hay horarios cargados.<br><button class="btn primary" onclick="go(\'Cargar\')">Cargar horarios</button></div>';
+    nextC.hidden=true; ag.hidden=true; return;
+  }
+  nextC.hidden=false; ag.hidden=false;
+  const items = timeline(now);
+  const cur = items.find(it=>it.start<=now && now<it.end);
+  const nxt = items.find(it=>it.start>now && it!==cur);
+
+  if (cur){
+    const total=cur.end-cur.start, left=cur.end-now, pct=Math.min(100,(now-cur.start)/total*100);
+    const st = left<=60000 ? 'late' : left<=5*60000 ? 'warn' : '';
+    nowC.className='card now '+st;
+    nowC.innerHTML=`<div class="label">Ahora</div>
+      <div class="title">${esc(cur.b.titulo)}</div>
+      <div class="range">${cur.b.ini} – ${hm(cur.end)}</div>
+      ${cur.b.resp?`<div class="who">${esc(cur.b.resp)}</div>`:''}
+      <div class="remain"><small>Tiempo restante</small>${fmtDur(left)}</div>
+      <div class="bar"><div style="width:${pct}%"></div></div>
+      ${cur.b.notas?`<div class="notes">${esc(cur.b.notas)}</div>`:''}`;
+  } else {
+    nowC.className='card now idle';
+    const started = items.some(it=>it.start<=now);
+    nowC.innerHTML = nxt
+      ? `<div class="label">${started?'Pausa':'Todavía no empezó'}</div><div class="title">${started?'Entre bloques':'Comienza pronto'}</div>
+         <div class="remain"><small>Próximo bloque en</small>${fmtDur(nxt.start-now)}</div>`
+      : `<div class="label">Evento</div><div class="title">Fin del cronograma</div><div class="who">No quedan bloques programados.</div>`;
+  }
+  if (nxt){
+    nextC.innerHTML=`<div class="label">A continuación</div><div class="title">${esc(nxt.b.titulo)}</div>
+      <div class="range">${nxt.b.ini} – ${hm(nxt.end)}${nxt.day!==iso(now)?' · '+fmtDate(nxt.day):''}</div>
+      ${nxt.b.resp?`<div class="who">${esc(nxt.b.resp)}</div>`:''}
+      <div class="in">Empieza ${fmtIn(nxt.start-now)}</div>`;
+  } else nextC.innerHTML='<div class="label">A continuación</div><div class="title" style="color:var(--muted)">Nada más por hoy</div>';
+
+  // Agenda del día que se está viendo (el del bloque actual, o el del próximo)
+  const day = (cur||nxt||items[items.length-1]).day;
+  const list = items.filter(it=>it.day===day);
+  ag.innerHTML = '<div class="label">Agenda · '+esc(fmtDate(day))+'</div><ol>'+list.map(it=>{
+    const cls = it===cur ? 'cur' : it.end<=now ? 'past' : '';
+    return `<li class="${cls}"><span class="h">${it.b.ini} – ${hm(it.end)}</span><span>${esc(it.b.titulo)}${it.b.resp?` <span class="r">· ${esc(it.b.resp)}</span>`:''}</span></li>`;
+  }).join('')+'</ol>';
+}
+const hm = d => pad(d.getHours())+':'+pad(d.getMinutes());
+
+// Pantalla completa y mantener pantalla encendida
+let lock=null;
+async function keepAwake(){ try{ if('wakeLock' in navigator && document.visibilityState==='visible') lock = await navigator.wakeLock.request('screen'); }catch(e){} }
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && !$('vVivo').hidden) keepAwake(); });
+$('fsBtn').onclick = async ()=>{
+  const el=document.documentElement;
+  if (document.fullscreenElement || document.body.classList.contains('fs')){
+    document.body.classList.remove('fs'); if(document.fullscreenElement) document.exitFullscreen?.(); $('fsBtn').textContent='Pantalla completa'; return;
+  }
+  document.body.classList.add('fs'); $('fsBtn').textContent='Salir';
+  try{ await (el.requestFullscreen||el.webkitRequestFullscreen).call(el); }catch(e){}
+};
+document.addEventListener('fullscreenchange', ()=>{ if(!document.fullscreenElement){ document.body.classList.remove('fs'); $('fsBtn').textContent='Pantalla completa'; } });
+
+// ---------- Navegación ----------
+let timer=null;
+function go(v){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.v===v));
+  $('vCargar').hidden = v!=='Cargar'; $('vVivo').hidden = v!=='Vivo';
+  clearInterval(timer);
+  if (v==='Vivo'){ renderLive(); timer=setInterval(renderLive, 1000); keepAwake(); }
+  else renderTable();
+  history.replaceState(null,'',location.pathname+location.search+'#'+v.toLowerCase());
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>go(t.dataset.v));
+
+// ---------- Inicio ----------
+const fromLink = readHash();
+if (!fromLink) blocks = load();
+sortBlocks();
+go(location.hash==='#cargar' || (!blocks.length && !fromLink) ? 'Cargar' : 'Vivo');
+</script>
+</body>
+</html>
