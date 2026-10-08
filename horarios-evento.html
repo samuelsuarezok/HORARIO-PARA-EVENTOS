@@ -57,24 +57,28 @@ h2 .sp{flex:1}
 .empty{color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:24px;text-align:center}
 
 /* ---------- En vivo ---------- */
-#vVivo{padding:clamp(12px,2.5vw,32px);display:grid;gap:clamp(12px,2vw,24px);grid-template-columns:1fr;min-height:calc(100vh - 62px);min-height:calc(100dvh - 62px)}
+/* La vista ocupa exactamente la pantalla: no se mueve la página, solo la lista de la agenda */
+body.live{height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+body.live #vVivo{flex:1;min-height:0}
+#vVivo{padding:clamp(10px,min(2.5vw,3vh),32px);display:grid;gap:clamp(10px,min(2vw,2.5vh),24px);overflow:auto;
+  grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(180px,1fr);grid-template-areas:"top" "now" "next" "agenda"}
+.top{grid-area:top} #now{grid-area:now} #next{grid-area:next} #agenda{grid-area:agenda}
 body.fs header{display:none}
-body.fs #vVivo{min-height:100vh;min-height:100dvh}
 .top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-.clock{font-size:clamp(1.6rem,4.5vw,3.2rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.clock{font-size:clamp(1.5rem,min(4.5vw,7vh),3.2rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .date{color:var(--muted);font-size:clamp(.9rem,1.6vw,1.2rem)}.date::first-letter{text-transform:uppercase}
 .top .adj{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .delay{font-weight:700;padding:4px 12px;border-radius:999px;background:#3a2f12;color:var(--warn);font-size:clamp(.85rem,1.4vw,1.05rem);font-variant-numeric:tabular-nums}
 .delay.early{background:#18264a;color:#9db8f0}
 .delay.ok{background:#173a2c;color:#8fe0b9}
-.card{background:var(--panel);border-radius:16px;padding:clamp(16px,3vw,36px);border-left:8px solid var(--ok);position:relative}
-.label{font-size:clamp(.8rem,1.4vw,1.05rem);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
-.now .title{font-size:clamp(1.8rem,5.5vw,4.6rem);font-weight:800;line-height:1.08;margin:.25em 0 .2em;overflow-wrap:anywhere}
-.range{font-size:clamp(1.1rem,2.6vw,2rem);font-weight:600;font-variant-numeric:tabular-nums}
-.who{font-size:clamp(1rem,2.2vw,1.6rem);color:var(--muted);margin-top:.3em}
-.remain{font-size:clamp(3rem,12vw,10rem);font-weight:900;font-variant-numeric:tabular-nums;line-height:1;margin-top:.25em;color:var(--ok)}
-.remain small{display:block;font-size:clamp(.8rem,1.4vw,1.05rem);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:.4em}
-.bar{height:10px;background:var(--ink);border-radius:6px;overflow:hidden;margin-top:clamp(12px,2vw,22px)}
+.card{background:var(--panel);border-radius:16px;padding:clamp(14px,min(3vw,4vh),36px);border-left:8px solid var(--ok);position:relative}
+.label{font-size:clamp(.75rem,min(1.4vw,2.6vh),1.05rem);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+.now .title{font-size:clamp(1.5rem,min(5.5vw,8vh),4.6rem);font-weight:800;line-height:1.08;margin:.25em 0 .2em;overflow-wrap:anywhere}
+.range{font-size:clamp(1rem,min(2.6vw,5vh),2rem);font-weight:600;font-variant-numeric:tabular-nums}
+.who{font-size:clamp(.95rem,min(2.2vw,4vh),1.6rem);color:var(--muted);margin-top:.3em}
+.remain{font-size:clamp(2.6rem,min(12vw,18vh),10rem);font-weight:900;font-variant-numeric:tabular-nums;line-height:1;margin-top:.25em;color:var(--ok)}
+.remain small{display:block;font-size:clamp(.75rem,min(1.4vw,2.6vh),1.05rem);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:.4em}
+.bar{height:10px;background:var(--ink);border-radius:6px;overflow:hidden;margin-top:clamp(10px,min(2vw,2.5vh),22px)}
 .bar div{height:100%;background:var(--ok);width:0;transition:width 1s linear}
 .notes{margin-top:12px;color:var(--muted);font-size:clamp(.9rem,1.6vw,1.15rem)}
 .card.warn{border-left-color:var(--warn)} .card.warn .remain{color:var(--warn)} .card.warn .bar div{background:var(--warn)}
@@ -83,8 +87,8 @@ body.fs #vVivo{min-height:100vh;min-height:100dvh}
 .next{border-left-color:var(--next)}
 .next .title{font-size:clamp(1.3rem,3.4vw,2.6rem);font-weight:800;margin:.25em 0 .15em;line-height:1.12;overflow-wrap:anywhere}
 .next .in{font-size:clamp(1rem,2.2vw,1.6rem);font-weight:700;color:var(--next);margin-top:.3em;font-variant-numeric:tabular-nums}
-.agenda{background:var(--panel);border-radius:16px;padding:clamp(14px,2vw,24px)}
-.agenda ol{list-style:none;margin:10px 0 0;padding:0}
+.agenda{background:var(--panel);border-radius:16px;padding:clamp(12px,2vw,24px);display:flex;flex-direction:column;min-height:0}
+.agenda ol{list-style:none;margin:10px 0 0;padding:2px;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;position:relative}
 .agenda .tip{color:var(--muted);font-size:.85rem;margin-top:4px}
 .agenda li{border-radius:8px;font-size:clamp(.95rem,1.4vw,1.1rem)}
 .agenda .ag{display:flex;gap:12px;align-items:baseline;width:100%;padding:9px 10px;background:none;border:0;border-radius:8px;text-align:left}
@@ -99,11 +103,37 @@ body.fs #vVivo{min-height:100vh;min-height:100dvh}
 .pickbar{display:flex;gap:8px;flex-wrap:wrap;padding:2px 10px 10px}
 .noData{text-align:center;color:var(--muted);padding:40px 20px;line-height:1.7}
 
-@media (min-width:1000px){
-  #vVivo{grid-template-columns:minmax(0,2fr) minmax(300px,1fr);grid-template-rows:auto auto 1fr;align-content:start}
-  .top{grid-column:1/-1}
-  .now{grid-row:2/4;display:flex;flex-direction:column;justify-content:center}
-  .agenda{grid-column:2;grid-row:3;overflow:auto}
+/* Pantalla ancha: agenda a la izquierda (con scroll), reloj del bloque actual fijo a la derecha */
+@media (min-width:1000px), (min-width:700px) and (orientation:landscape){
+  #vVivo{grid-template-columns:minmax(280px,1fr) minmax(0,2fr);grid-template-rows:auto auto minmax(120px,1fr);
+    grid-template-areas:"top top" "next now" "agenda now"}
+  #now{display:flex;flex-direction:column;justify-content:center;min-height:0}
+  .next .title{font-size:clamp(1.2rem,min(2.2vw,4.5vh),2.2rem)}
+}
+/* Celulares (pantalla baja o angosta): más compacto para que la agenda tenga lugar */
+@media (max-height:560px), (max-width:699px){
+  header{padding:6px 14px}
+  .next .who{display:none}
+  .next .range,.next .in{display:inline}
+  .next .in{margin-left:.6em}
+  .next .title{margin:.15em 0 .1em}
+}
+@media (max-height:560px){
+  .agenda .tip,.agenda .agd{display:none}
+  .agenda ol{margin-top:6px}
+}
+@media (max-height:560px) and (min-width:700px) and (orientation:landscape){
+  #vVivo{grid-template-columns:minmax(240px,1fr) minmax(0,1.4fr)}
+}
+@media (max-width:699px){
+  body.live header h1,.top .date{display:none}
+  #vVivo{grid-template-rows:auto auto auto minmax(130px,1fr)}
+  /* Tiempo restante al costado del bloque actual */
+  #now{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:14px;
+    grid-template-areas:"label remain" "title remain" "range remain" "who remain" "bar bar" "notes notes"}
+  #now .label{grid-area:label} #now .title{grid-area:title} #now .range{grid-area:range} #now .who{grid-area:who}
+  #now .remain{grid-area:remain;align-self:center;text-align:right;margin:0} #now .bar{grid-area:bar} #now .notes{grid-area:notes}
+  #now .noData{grid-column:1/-1;grid-row:1/-1}
 }
 @media (max-width:640px){
   header{padding:10px 14px}
@@ -614,7 +644,7 @@ const AKEY = 'horarios-evento-ajuste-v1';
 let ajuste = (()=>{ try{ return JSON.parse(localStorage.getItem(AKEY)); }catch(e){ return null; } })();
 function setAjuste(a){ ajuste=a; try{ a ? localStorage.setItem(AKEY, JSON.stringify(a)) : localStorage.removeItem(AKEY); }catch(e){} }
 const keyOf = it => it.day+'|'+it.b.ini+'|'+it.b.titulo;
-let pick=null, pickAt=0, lastAg='', lastAdj='';
+let pick=null, pickAt=0, lastAg='', lastAdj='', lastFocus=null;
 function testNow(){
   const m = location.search.match(/[?&]hora=(\d{1,2}):?(\d{2})/);
   if (!m) return new Date();
@@ -666,13 +696,21 @@ function renderLive(){
   const day = (cur||nxt||items[items.length-1]).day;
   const list = items.filter(it=>it.day===day);
   if (pick && (Date.now()-pickAt>15000 || !list.some(it=>keyOf(it)===pick))) pick=null;
-  const html = '<div class="label">Agenda · '+esc(fmtDate(day))+'</div><div class="tip">¿Se atrasó o adelantó? Tocá el bloque que está empezando.</div><ol>'+list.map(it=>{
+  const html = '<div class="label">Agenda<span class="agd"> · '+esc(fmtDate(day))+'</span></div><div class="tip">Tocá un bloque para empezarlo ahora.</div><ol>'+list.map(it=>{
     const k=keyOf(it), [a,b]=it.skip?it.o:[it.start,it.end];
     const cls=[it===cur?'cur':it.end<=now?'past':'', it.skip?'skip':'', k===pick?'pick':''].join(' ').trim();
     return `<li class="${cls}"><button class="ag" data-k="${esc(k)}"><span class="h">${hm(a)} – ${hm(b)}</span><span>${esc(it.b.titulo)}${it.b.resp?` <span class="r">· ${esc(it.b.resp)}</span>`:''}</span></button>`+
       (k===pick?`<div class="pickbar"><button class="btn small primary" data-go="${esc(k)}">${it===cur?'↺ Reiniciar tiempo':'▶ Empezar ahora'}</button><button class="btn small" data-cancel>Cancelar</button></div>`:'')+'</li>';
   }).join('')+'</ol>';
-  if (html!==lastAg) ag.innerHTML=lastAg=html;  // solo si cambió, para no perder toques
+  if (html!==lastAg){  // solo si cambió, para no perder toques
+    const prevTop = ag.querySelector('ol')?.scrollTop || 0;
+    ag.innerHTML=lastAg=html;
+    // Mantiene el scroll de la lista; cuando cambia el bloque actual, lo centra
+    const ol = ag.querySelector('ol'), fk = (cur||nxt) ? keyOf(cur||nxt) : '';
+    const li = fk!==lastFocus && [...ol.children].find(li=>li.querySelector('.ag').dataset.k===fk);
+    ol.scrollTop = li ? li.offsetTop-(ol.clientHeight-li.offsetHeight)/2 : prevTop;
+    lastFocus = fk;
+  }
 
   const m = items.delay==null ? null : Math.round(items.delay/60000);
   const adj = m==null ? '' : `<span class="delay ${m>0?'':m<0?'early':'ok'}">${m>0?'Atraso '+m+' min':m<0?'Adelanto '+(-m)+' min':'En horario'}</span><button class="btn small" data-orig>Horario original</button>`;
@@ -708,6 +746,7 @@ let timer=null;
 function go(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.v===v));
   $('vCargar').hidden = v!=='Cargar'; $('vVivo').hidden = v!=='Vivo';
+  document.body.classList.toggle('live', v==='Vivo');
   clearInterval(timer);
   if (v==='Vivo'){ renderLive(); timer=setInterval(renderLive, 1000); keepAwake(); }
   else renderTable();
