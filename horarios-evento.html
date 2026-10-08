@@ -36,6 +36,7 @@ header h1 span{color:var(--muted);font-weight:400}
 .drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;background:var(--panel);line-height:1.6}
 .drop.over{border-color:var(--gold);background:var(--panel2)}
 .drop b{color:var(--gold)}
+.drop .hint{color:var(--muted);font-size:.88rem}
 .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
 details{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
 summary{cursor:pointer;color:var(--muted)}
@@ -126,11 +127,13 @@ body.fs #vVivo{min-height:100vh;min-height:100dvh}
 <!-- ================= CARGAR ================= -->
 <section id="vCargar" hidden>
   <div class="drop" id="drop">
-    Arrastrá acá tu archivo <b>.csv</b> o <b>.txt</b> (desde Excel o Google Sheets: Archivo → Descargar / Guardar como CSV)
+    Arrastrá acá tu archivo <b>.csv</b>, <b>.txt</b> o <b>.pdf</b><br>
+    <span class="hint">CSV: desde Excel o Google Sheets (Archivo → Descargar / Guardar como CSV).
+    PDF: con texto (no escaneado), en tabla con columna de hora o con cada bloque empezando por su hora.</span>
     <div class="acts">
       <button class="btn primary" id="pickBtn">Elegir archivo</button>
       <button class="btn" id="tplBtn">Descargar plantilla</button>
-      <input type="file" id="file" accept=".csv,.txt,.tsv,text/csv,text/plain" hidden>
+      <input type="file" id="file" accept=".csv,.txt,.tsv,.pdf,text/csv,text/plain,application/pdf" hidden>
     </div>
   </div>
   <details>
@@ -183,6 +186,26 @@ function parseTime(v){
   if (h>23||mi>59) return null;
   return pad(h)+':'+pad(mi);
 }
+function parseRange(v){ // "09:00 - 09:45", "9 a 10 hs" → ['09:00','09:45']
+  for (const re of [/\s*[-–—]\s*/, /\s+(?:a|al|hasta)\s+/i]){
+    const p = String(v??'').split(re);
+    if (p.length===2){ const a=parseTime(p[0]), b=parseTime(p[1]); if (a && b) return [a,b]; }
+  }
+  return null;
+}
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function findDate(v){ // busca una fecha dentro de un texto: "Sábado 10/10", "10 de octubre de 2026"
+  const s = norm(String(v??''));
+  let m = s.match(/\d{4}-\d{1,2}-\d{1,2}/); if (m) return parseDate(m[0]);
+  let d, mo, y;
+  if ((m = s.match(/(?:^|[^\d:.])(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?(?![\d:])/) || s.match(/(?:^|[^\d:.])(\d{1,2})[.-](\d{1,2})[.-](\d{4}|\d{2})(?![\d:])/))){ d=+m[1]; mo=+m[2]; y=m[3]; }
+  else if ((m = s.match(/(\d{1,2})\s*(?:de\s+)?(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|set(?:iembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)\b\.?(?:\s+(?:de|del)?\s*(\d{4}))?/))){
+    d=+m[1]; mo=(m[2].startsWith('set')?8:MESES.indexOf(m[2].slice(0,3)))+1; y=m[3];
+  } else return null;
+  if (mo<1||mo>12||d<1||d>31) return null;
+  y = y ? +y : new Date().getFullYear(); if (y<100) y+=2000;
+  return y+'-'+pad(mo)+'-'+pad(d);
+}
 function parseDate(v){
   v = String(v??'').trim();
   if (!v) return '';
@@ -230,8 +253,8 @@ function parseCSV(text){
 }
 const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 const HEAD = [
-  ['fecha',/^(fecha|dia|date|jornada)/], ['ini',/^(inicio|desde|comienza|empieza|start|hora inicio|hora de inicio|hora)$/],
-  ['fin',/^(fin|hasta|termina|end|hora fin|hora de fin|finaliza)/], ['titulo',/^(bloque|titulo|actividad|evento|nombre|title|programa|segmento)/],
+  ['fecha',/^(fecha|dia|date|jornada)/], ['ini',/^(inicio|desde|comienza|empieza|start|hora inicio|hora de inicio|hora|horario|horarios)$/],
+  ['fin',/^(fin|hasta|termina|end|hora fin|hora de fin|finaliza)/], ['titulo',/^(bloque|titulo|actividad|evento|nombre|title|programa|segmento|descripcion|detalle|momento)/],
   ['resp',/^(responsable|orador|a cargo|quien|speaker|encargado|ministra)/], ['notas',/^(notas?|observaciones|obs|comentarios|notes)/]
 ];
 function rowsToBlocks(rows){
@@ -249,7 +272,8 @@ function rowsToBlocks(rows){
   let lastDate='';
   rows.forEach((r,n)=>{
     const g = k => map[k]!=null ? (r[map[k]]||'').trim() : '';
-    let fecha = parseDate(g('fecha')); const ini=parseTime(g('ini')), fin=parseTime(g('fin'));
+    let fecha = parseDate(g('fecha')), ini=parseTime(g('ini')), fin=parseTime(g('fin'));
+    if (!ini && !g('fin')){ const rg=parseRange(g('ini')); if (rg) [ini,fin]=rg; } // "09:00 - 09:45" en una sola columna
     if (fecha===null){ errs.push('Fila '+(n+1)+': fecha "'+g('fecha')+'" no reconocida'); fecha=''; }
     if (!g('fecha') && lastDate) fecha = lastDate; // celdas de fecha combinadas en Excel
     if (fecha) lastDate = fecha;
@@ -273,6 +297,171 @@ function toCSV(){
 function dl(name, text){
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));
   a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+// ---------- PDF ----------
+// El lector (pdf.js) se descarga solo la primera vez que se carga un PDF.
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/';
+let pdfjs = null;
+async function loadPdfJs(){
+  if (pdfjs) return pdfjs;
+  try{ pdfjs = await import(PDFJS+'pdf.min.mjs'); }
+  catch(e){ throw new Error('No se pudo descargar el lector de PDF. Revisá la conexión a internet.'); }
+  pdfjs.GlobalWorkerOptions.workerSrc = PDFJS+'pdf.worker.min.mjs';
+  return pdfjs;
+}
+function joinItems(its){ // une fragmentos de texto respetando los espacios
+  let s='', end=null;
+  its.forEach(it=>{
+    if (end!==null && (it.x-end > it.fs*0.15 || /\s$/.test(s) || /^\s/.test(it.s))) s+=' ';
+    s += it.s.trim(); end = it.x+it.w;
+  });
+  return s.replace(/\s+/g,' ').trim();
+}
+function cellsOf(its){ // separa una línea en celdas donde hay un hueco grande
+  const groups=[]; let end=-Infinity;
+  its.forEach(it=>{ if (!groups.length || it.x-end > it.fs*0.75) groups.push([]); groups[groups.length-1].push(it); end=Math.max(end,it.x+it.w); });
+  return groups.map(g=>({s:joinItems(g), x0:g[0].x, x1:Math.max(...g.map(it=>it.x+it.w))}));
+}
+async function pdfLines(buf){
+  const lib = await loadPdfJs();
+  const doc = await lib.getDocument({data:buf, isEvalSupported:false}).promise;
+  const lines=[];
+  for (let p=1; p<=doc.numPages; p++){
+    const tc = await (await doc.getPage(p)).getTextContent();
+    const its = tc.items.filter(it=>it.str && it.str.trim()).flatMap(it=>{
+      // "09:00    Alabanza" en un solo fragmento: se separa donde hay 2+ espacios
+      const cw = it.width/it.str.length, fs = Math.hypot(it.transform[2],it.transform[3])||it.height||10, out=[], re=/\S+(?:\s\S+)*/g;
+      for (let m; (m=re.exec(it.str));) out.push({s:m[0], x:it.transform[4]+m.index*cw, y:it.transform[5], w:m[0].length*cw, fs});
+      return out;
+    }).sort((a,b)=>b.y-a.y || a.x-b.x);
+    let cur=null;
+    its.forEach(it=>{
+      if (cur && Math.abs(cur.y-it.y) <= Math.max(cur.fs,it.fs)*0.45){ cur.its.push(it); cur.fs=Math.max(cur.fs,it.fs); }
+      else { cur={page:p, y:it.y, fs:it.fs, its:[it]}; lines.push(cur); }
+    });
+  }
+  lines.forEach(l=>{ l.its.sort((a,b)=>a.x-b.x); l.cells=cellsOf(l.its); });
+  return lines;
+}
+const TM = '\\d{1,2}(?:\\s*[:.h]\\s*\\d{2})?(?:\\s*(?:hs?\\.?|[ap]\\.?\\s?m\\.?))?';
+const LINE = new RegExp('^('+TM+')(?:\\s*(?:-|–|—|a|al|hasta)\\s*('+TM+'))?\\s*[-–—:|·.,]?\\s+(.+)$','i');
+// Tabla con encabezados (Hora / Bloque / ...): cada texto va a la columna que tiene arriba
+function headerCols(cells){
+  const map={};
+  cells.forEach((c,j)=>{ const n=norm(c.s); for (const [k,re] of HEAD) if (re.test(n) && !(k in map)){ map[k]=j; break; } });
+  if (!('ini' in map) || Object.keys(map).length<2) return null;
+  if (!('titulo' in map)){ const j=cells.findIndex((c,j)=>j>map.ini && !Object.values(map).includes(j)); if (j<0) return null; map.titulo=j; }
+  return cells.map((c,j)=>({...c, k:Object.keys(map).find(k=>map[k]===j)||null}));
+}
+function tableRows(lines){
+  let hi=-1, cols=null;
+  const known = c => c ? c.filter(x=>x.k).length : 0;
+  for (let i=0; i<lines.length && !cols; i++){
+    // encabezados por celdas ("Hora de inicio") o por fragmento (títulos muy juntos)
+    const a = headerCols(lines[i].cells), b = headerCols(lines[i].its.map(it=>({s:it.s.trim(), x0:it.x, x1:it.x+it.w})));
+    cols = known(b)>known(a) ? b : a; hi = i;
+  }
+  if (!cols) return null;
+  const head = norm(lines[hi].its.map(it=>it.s).join(' '));
+  // Límites de columna: los huecos verticales donde no hay texto en ninguna fila con hora.
+  // Un grupo de texto sin encabezado propio va con el encabezado de su derecha (texto alineado
+  // a la izquierda bajo un encabezado centrado).
+  const timed = lines.slice(hi+1).filter(l=>l.cells.some(c=>leadTime(c.s)));
+  const spans = [...cols.map(c=>[c.x0,c.x1]), ...timed.flatMap(l=>l.cells.map(c=>[c.x0,c.x1]))].sort((a,b)=>a[0]-b[0]);
+  const grp=[]; spans.forEach(([a,b])=>{ const g=grp[grp.length-1]; if (g && a<g[1]) g[1]=Math.max(g[1],b); else grp.push([a,b]); });
+  const own = cols.map(c=>grp.findIndex(g=>c.x0>=g[0] && c.x1<=g[1]));
+  const cuts = own.every((g,j)=>!j || g>own[j-1])
+    ? own.slice(0,-1).map(g=>(grp[g][1]+grp[g+1][0])/2)
+    : cols.slice(1).map((c,j)=>(cols[j].x1+c.x0)/2);   // texto desbordado: se usan los encabezados
+  // Una fila de la tabla puede ocupar varios renglones (celdas largas o centradas verticalmente):
+  // cada renglón sin hora se suma a la fila con hora más cercana.
+  const DANGLE = /(?:[-–—]|\s(?:a|al|hasta))$/i, empty = l=>({fecha:'',ini:'',fin:'',titulo:'',resp:'',notas:'', line:l}), out=[];
+  lines.slice(0,hi).forEach(l=>{ const t=joinItems(l.its); if (findDate(t)) out.push({...empty(l), notas:t}); }); // fecha arriba de la tabla
+  let seg=[];
+  const flush = ()=>{
+    const an = seg.filter(r=>r.anchor);
+    seg.forEach(r=>{
+      if (r.anchor || !an.length) return;
+      const near = an.reduce((b,a)=>Math.abs(a.line.y-r.line.y) < Math.abs(b.line.y-r.line.y)-0.5 ? a : b);
+      if (Math.abs(near.line.y-r.line.y) <= r.line.fs*2.6) near.parts.push(r);
+    });
+    an.forEach(a=>{
+      const ps = a.parts.sort((x,y)=>y.line.y-x.line.y);
+      ['fecha','fin','titulo','resp','notas'].forEach(k=>{ a[k] = ps.map(p=>p[k]).filter(Boolean).join(' '); });
+      out.push(a);
+    });
+    seg=[];
+  };
+  lines.slice(hi+1).forEach(l=>{
+    if (norm(l.its.map(it=>it.s).join(' '))===head) return;   // encabezado repetido en otra página
+    const per = cols.map(()=>[]);
+    l.its.forEach(it=>{ let j=0; while (j<cuts.length && it.x+1>=cuts[j]) j++; per[j].push(it); });
+    const r=empty(l);
+    per.forEach((its,j)=>{ const s=joinItems(its); if (!s) return; const k=cols[j].k||'notas'; r[k] = r[k] ? r[k]+' · '+s : s; });
+    if (seg.length && seg[0].line.page!==l.page) flush();
+    const a = seg.filter(x=>x.anchor).pop();
+    if (a && r.ini && (DANGLE.test(a.ini) || /^[-–—]/.test(r.ini)) && leadTime(r.ini.replace(/^[-–—]\s*/,''))){ a.ini+=' '+r.ini; r.ini=''; } // "09:00 -" / "09:45"
+    r.anchor = !!leadTime(r.ini);
+    if (r.anchor){ r.parts=[r]; seg.push(r); return; }
+    if (findDate(joinItems(l.its))){ flush(); out.push({...empty(l), notas:joinItems(l.its)}); return; } // "Sábado 10 de octubre"
+    if (r.ini){ r.notas = r.notas ? r.ini+' '+r.notas : r.ini; r.ini=''; }
+    seg.push(r);
+  });
+  flush();
+  return out;
+}
+function leadTime(s){ const m=String(s??'').match(new RegExp('^'+TM,'i')); return m ? parseTime(m[0]) : null; }
+// Texto libre: cada bloque empieza con su hora ("09:00 – 09:45  Alabanza  Banda")
+function freeRows(lines){
+  return lines.map(l=>{
+    const cells = l.cells.map(c=>c.s), r={fecha:'',ini:'',fin:'',titulo:'',resp:'',notas:'', line:l};
+    while (cells.length>1 && !LINE.test(cells.join('\t')) && findDate(cells[0]) && !parseTime(cells[0])) r.fecha=cells.shift();
+    const m = cells.join('\t').match(LINE);
+    if (m && /[:.h]\s*\d{2}|h|[ap]\.?\s?m/i.test(m[1]) && parseTime(m[1])){
+      const rest = m[3].split('\t').map(s=>s.trim()).filter(Boolean);
+      Object.assign(r, {ini:m[1], fin:m[2]||'', titulo:rest[0]||'', resp:rest[1]||'', notas:rest.slice(2).join(' · ')});
+    } else r.notas = cells.join(' ');
+    return r;
+  });
+}
+function pdfToBlocks(lines){
+  const t = tableRows(lines), out = t ? rowsToPdfBlocks(t) : [];
+  return out.length ? out : rowsToPdfBlocks(freeRows(lines));
+}
+function rowsToPdfBlocks(rows){
+  const out=[]; let date='', last=null, prev=null;
+  rows.forEach(r=>{
+    let ini=parseTime(r.ini), fin=parseTime(r.fin)||'';
+    if (!ini){ const rg=parseRange(r.ini); if (rg) [ini,fin]=rg; else ini=leadTime(r.ini); }
+    if (!ini){
+      const d = findDate([r.fecha,r.ini,r.titulo,r.resp,r.notas].join(' '));
+      if (d){ date=d; last=null; return; }  // fila tipo "Sábado 10 de octubre"
+      // Texto que sigue a un bloque (celda en dos renglones): se suma a ese bloque
+      if (last && prev.page===r.line.page && prev.y-r.line.y <= r.line.fs*2.2){
+        ['titulo','resp','notas'].forEach(k=>{ if (r[k]) last[k] = last[k] ? last[k]+' '+r[k] : r[k]; });
+        prev = r.line;
+      }
+      return;
+    }
+    const d = r.fecha && (parseDate(r.fecha) || findDate(r.fecha)); if (d) date=d;
+    last = {fecha:date, ini, fin, titulo:r.titulo||'(sin nombre)', resp:r.resp, notas:r.notas};
+    out.push(last); prev = r.line;
+  });
+  return out;
+}
+async function importPdf(f){
+  showMsg('Leyendo PDF…', true);
+  try{
+    const lines = await pdfLines(await f.arrayBuffer());
+    if (!lines.length) throw new Error('Este PDF no tiene texto seleccionable (parece escaneado). Exportalo desde Word, Excel o Google Sheets, o usá CSV.');
+    const out = pdfToBlocks(lines);
+    if (!out.length) throw new Error('No encontré horarios en el PDF. Tiene que ser una tabla con columna de hora, o cada bloque tiene que empezar con su hora (ej.: 09:00 – 09:45 Alabanza).');
+    blocks = out; sortBlocks(); save(); renderTable();
+    showMsg('✓ Se cargaron <b>'+out.length+' bloques</b> desde el PDF. Revisalos en la tabla de abajo y corregí lo que haga falta. <button class="btn small" onclick="go(\'Vivo\')">Ver en vivo</button>', true);
+  }catch(e){
+    showMsg('✕ '+(e && e.name==='PasswordException' ? 'El PDF tiene contraseña. Guardalo sin contraseña y probá de nuevo.' : (e && e.message) || e), false);
+  }
 }
 
 // ---------- Guardado y enlace compartible ----------
@@ -304,6 +493,7 @@ function importText(text){
   }catch(e){ showMsg('✕ '+e.message, false); }
 }
 function readFile(f){
+  if (/\.pdf$/i.test(f.name) || f.type==='application/pdf') return importPdf(f);
   const r = new FileReader();
   r.onload = () => {
     let t = r.result;
