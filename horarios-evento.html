@@ -63,7 +63,10 @@ body.fs #vVivo{min-height:100vh;min-height:100dvh}
 .top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
 .clock{font-size:clamp(1.6rem,4.5vw,3.2rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .date{color:var(--muted);font-size:clamp(.9rem,1.6vw,1.2rem)}.date::first-letter{text-transform:uppercase}
-.top .btn{margin-left:auto}
+.top .adj{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.delay{font-weight:700;padding:4px 12px;border-radius:999px;background:#3a2f12;color:var(--warn);font-size:clamp(.85rem,1.4vw,1.05rem);font-variant-numeric:tabular-nums}
+.delay.early{background:#18264a;color:#9db8f0}
+.delay.ok{background:#173a2c;color:#8fe0b9}
 .card{background:var(--panel);border-radius:16px;padding:clamp(16px,3vw,36px);border-left:8px solid var(--ok);position:relative}
 .label{font-size:clamp(.8rem,1.4vw,1.05rem);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
 .now .title{font-size:clamp(1.8rem,5.5vw,4.6rem);font-weight:800;line-height:1.08;margin:.25em 0 .2em;overflow-wrap:anywhere}
@@ -82,12 +85,18 @@ body.fs #vVivo{min-height:100vh;min-height:100dvh}
 .next .in{font-size:clamp(1rem,2.2vw,1.6rem);font-weight:700;color:var(--next);margin-top:.3em;font-variant-numeric:tabular-nums}
 .agenda{background:var(--panel);border-radius:16px;padding:clamp(14px,2vw,24px)}
 .agenda ol{list-style:none;margin:10px 0 0;padding:0}
-.agenda li{display:flex;gap:12px;padding:9px 10px;border-radius:8px;font-size:clamp(.95rem,1.4vw,1.1rem);align-items:baseline}
+.agenda .tip{color:var(--muted);font-size:.85rem;margin-top:4px}
+.agenda li{border-radius:8px;font-size:clamp(.95rem,1.4vw,1.1rem)}
+.agenda .ag{display:flex;gap:12px;align-items:baseline;width:100%;padding:9px 10px;background:none;border:0;border-radius:8px;text-align:left}
+.agenda .ag:hover{background:var(--panel2)}
 .agenda li .h{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap;min-width:6.6em}
 .agenda li.past{opacity:.45}
+.agenda li.skip .h{text-decoration:line-through}
 .agenda li.cur{background:var(--panel2);outline:2px solid var(--gold)}
 .agenda li.cur .h{color:var(--gold)}
+.agenda li.pick{background:var(--panel2);outline:2px dashed var(--next);opacity:1}
 .agenda li .r{color:var(--muted);font-size:.9em}
+.pickbar{display:flex;gap:8px;flex-wrap:wrap;padding:2px 10px 10px}
 .noData{text-align:center;color:var(--muted);padding:40px 20px;line-height:1.7}
 
 @media (min-width:1000px){
@@ -159,6 +168,7 @@ body.fs #vVivo{min-height:100vh;min-height:100dvh}
   <div class="top">
     <div class="clock" id="clock">--:--</div>
     <div class="date" id="date"></div>
+    <div class="adj" id="adj"></div>
     <button class="btn small" id="fsBtn">Pantalla completa</button>
   </div>
   <div class="card now" id="now"></div>
@@ -586,8 +596,25 @@ function timeline(now){
     if (it.b.fin){ const [h,mi]=it.b.fin.split(':').map(Number); it.end=new Date(y,mo-1,d,h,mi); if(it.end<=it.start) it.end=new Date(it.end.getTime()+864e5); }
     else { const n=items[i+1]; it.end = n && n.day===it.day ? n.start : new Date(it.start.getTime()+30*60000); }
   });
+  // Ajuste en vivo: el bloque elegido empieza en ajuste.at y los siguientes del mismo día se corren igual.
+  // Los anteriores que todavía no habían terminado se cortan ahí (o quedan salteados).
+  const s = ajuste ? items.findIndex(it=>keyOf(it)===ajuste.key) : -1;
+  if (s>=0){
+    const sel=items[s], delta=ajuste.at-sel.start;
+    items.forEach((it,i)=>{
+      if (it.day!==sel.day) return;
+      if (i>=s){ it.start=new Date(+it.start+delta); it.end=new Date(+it.end+delta); }
+      else if (it.end>ajuste.at){ it.o=[it.start,it.end]; it.skip=it.start>=ajuste.at; it.end=new Date(ajuste.at); if (it.start>it.end) it.start=it.end; }
+    });
+    items.delay=delta;
+  }
   return items;
 }
+const AKEY = 'horarios-evento-ajuste-v1';
+let ajuste = (()=>{ try{ return JSON.parse(localStorage.getItem(AKEY)); }catch(e){ return null; } })();
+function setAjuste(a){ ajuste=a; try{ a ? localStorage.setItem(AKEY, JSON.stringify(a)) : localStorage.removeItem(AKEY); }catch(e){} }
+const keyOf = it => it.day+'|'+it.b.ini+'|'+it.b.titulo;
+let pick=null, pickAt=0, lastAg='', lastAdj='';
 function testNow(){
   const m = location.search.match(/[?&]hora=(\d{1,2}):?(\d{2})/);
   if (!m) return new Date();
@@ -602,7 +629,7 @@ function renderLive(){
   if (!blocks.length){
     nowC.className='card now idle';
     nowC.innerHTML='<div class="noData">No hay horarios cargados.<br><button class="btn primary" onclick="go(\'Cargar\')">Cargar horarios</button></div>';
-    nextC.hidden=true; ag.hidden=true; return;
+    nextC.hidden=true; ag.hidden=true; $('adj').innerHTML=lastAdj=''; return;
   }
   nextC.hidden=false; ag.hidden=false;
   const items = timeline(now);
@@ -615,7 +642,7 @@ function renderLive(){
     nowC.className='card now '+st;
     nowC.innerHTML=`<div class="label">Ahora</div>
       <div class="title">${esc(cur.b.titulo)}</div>
-      <div class="range">${cur.b.ini} – ${hm(cur.end)}</div>
+      <div class="range">${hm(cur.start)} – ${hm(cur.end)}</div>
       ${cur.b.resp?`<div class="who">${esc(cur.b.resp)}</div>`:''}
       <div class="remain"><small>Tiempo restante</small>${fmtDur(left)}</div>
       <div class="bar"><div style="width:${pct}%"></div></div>
@@ -630,7 +657,7 @@ function renderLive(){
   }
   if (nxt){
     nextC.innerHTML=`<div class="label">A continuación</div><div class="title">${esc(nxt.b.titulo)}</div>
-      <div class="range">${nxt.b.ini} – ${hm(nxt.end)}${nxt.day!==iso(now)?' · '+fmtDate(nxt.day):''}</div>
+      <div class="range">${hm(nxt.start)} – ${hm(nxt.end)}${nxt.day!==iso(now)?' · '+fmtDate(nxt.day):''}</div>
       ${nxt.b.resp?`<div class="who">${esc(nxt.b.resp)}</div>`:''}
       <div class="in">Empieza ${fmtIn(nxt.start-now)}</div>`;
   } else nextC.innerHTML='<div class="label">A continuación</div><div class="title" style="color:var(--muted)">Nada más por hoy</div>';
@@ -638,11 +665,28 @@ function renderLive(){
   // Agenda del día que se está viendo (el del bloque actual, o el del próximo)
   const day = (cur||nxt||items[items.length-1]).day;
   const list = items.filter(it=>it.day===day);
-  ag.innerHTML = '<div class="label">Agenda · '+esc(fmtDate(day))+'</div><ol>'+list.map(it=>{
-    const cls = it===cur ? 'cur' : it.end<=now ? 'past' : '';
-    return `<li class="${cls}"><span class="h">${it.b.ini} – ${hm(it.end)}</span><span>${esc(it.b.titulo)}${it.b.resp?` <span class="r">· ${esc(it.b.resp)}</span>`:''}</span></li>`;
+  if (pick && (Date.now()-pickAt>15000 || !list.some(it=>keyOf(it)===pick))) pick=null;
+  const html = '<div class="label">Agenda · '+esc(fmtDate(day))+'</div><div class="tip">¿Se atrasó o adelantó? Tocá el bloque que está empezando.</div><ol>'+list.map(it=>{
+    const k=keyOf(it), [a,b]=it.skip?it.o:[it.start,it.end];
+    const cls=[it===cur?'cur':it.end<=now?'past':'', it.skip?'skip':'', k===pick?'pick':''].join(' ').trim();
+    return `<li class="${cls}"><button class="ag" data-k="${esc(k)}"><span class="h">${hm(a)} – ${hm(b)}</span><span>${esc(it.b.titulo)}${it.b.resp?` <span class="r">· ${esc(it.b.resp)}</span>`:''}</span></button>`+
+      (k===pick?`<div class="pickbar"><button class="btn small primary" data-go="${esc(k)}">${it===cur?'↺ Reiniciar tiempo':'▶ Empezar ahora'}</button><button class="btn small" data-cancel>Cancelar</button></div>`:'')+'</li>';
   }).join('')+'</ol>';
+  if (html!==lastAg) ag.innerHTML=lastAg=html;  // solo si cambió, para no perder toques
+
+  const m = items.delay==null ? null : Math.round(items.delay/60000);
+  const adj = m==null ? '' : `<span class="delay ${m>0?'':m<0?'early':'ok'}">${m>0?'Atraso '+m+' min':m<0?'Adelanto '+(-m)+' min':'En horario'}</span><button class="btn small" data-orig>Horario original</button>`;
+  if (adj!==lastAdj) $('adj').innerHTML=lastAdj=adj;
 }
+$('agenda').addEventListener('click', e=>{
+  const t=e.target.closest('button'); if (!t) return;
+  if (t.dataset.go!=null){ setAjuste({key:t.dataset.go, at:Date.now()+offset}); pick=null; }
+  else if (t.dataset.k!=null){ pick = pick===t.dataset.k ? null : t.dataset.k; pickAt=Date.now(); }
+  else if (t.dataset.cancel!=null) pick=null;
+  renderLive();
+  if (pick) $('agenda').querySelector('[data-go]')?.focus();
+});
+$('adj').addEventListener('click', e=>{ if (e.target.closest('[data-orig]')){ setAjuste(null); renderLive(); } });
 const hm = d => pad(d.getHours())+':'+pad(d.getMinutes());
 
 // Pantalla completa y mantener pantalla encendida
